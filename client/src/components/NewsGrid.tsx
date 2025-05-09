@@ -29,8 +29,8 @@ const NewsGrid = ({ category, featured = false, limit }: NewsGridProps) => {
     queryKey = `/api/news/category/${category}`;
   }
   
-  const { data: articles, isLoading } = useQuery<NewsArticleType[]>({
-    queryKey: [queryKey],
+  const { data: articles, isLoading, isError } = useQuery<NewsArticleType[]>({
+    queryKey: [queryKey]
   });
 
   // Default placeholder image if none is provided
