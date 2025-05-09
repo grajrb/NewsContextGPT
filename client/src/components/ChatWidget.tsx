@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { sendMessage, clearChat, getChatHistory } from "@/lib/chat";
+import { useConnection } from "@/components/ConnectionProvider";
 
 type Message = {
   id: string;
@@ -27,6 +28,7 @@ const ChatWidget = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { status, offlineMode, setOfflineMode } = useConnection();
 
   // Initialize session ID
   useEffect(() => {
@@ -189,8 +191,27 @@ const ChatWidget = () => {
       },
     ]);
 
-    // Send message to API
-    sendMessageMutation.mutate(inputValue);
+    // If we're in offline mode, provide an offline response
+    if (offlineMode || status === 'disconnected') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          content: "I'm currently in offline mode and unable to process your request. Please enable online mode to chat with me.",
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+      
+      toast({
+        title: "Offline Mode",
+        description: "Your device is offline. Switch to online mode to use the chat.",
+        variant: "destructive",
+      });
+    } else {
+      // Send message to API when online
+      sendMessageMutation.mutate(inputValue);
+    }
 
     // Clear input
     setInputValue("");
@@ -224,6 +245,20 @@ const ChatWidget = () => {
                 <path d="M7 16.3c0-1 .8-2.1 2.2-2.7C10.5 13 11.3 13 12 13c.7 0 1.5 0 2.8.6 1.4.6 2.2 1.7 2.2 2.7"></path>
               </svg>
               <h3 className="font-semibold">News Assistant</h3>
+              {(offlineMode || status === 'disconnected') && (
+                <span className="ml-2 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-sm flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                    <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+                    <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+                    <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+                    <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                    <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                  </svg>
+                  Offline
+                </span>
+              )}
             </div>
             <div className="flex">
               <Button 
@@ -347,14 +382,14 @@ const ChatWidget = () => {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleInputKeyDown}
-                  placeholder="Ask about any news topic..."
+                  placeholder={offlineMode || status === 'disconnected' ? "Chat unavailable in offline mode" : "Ask about any news topic..."}
                   className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  disabled={sendMessageMutation.isPending}
+                  disabled={sendMessageMutation.isPending || offlineMode || status === 'disconnected'}
                 />
                 <Button
                   type="submit"
                   className="bg-primary-500 text-white px-4 py-2 rounded-r-lg hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                  disabled={sendMessageMutation.isPending || !inputValue.trim()}
+                  disabled={sendMessageMutation.isPending || !inputValue.trim() || offlineMode || status === 'disconnected'}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m22 2-7 20-4-9-9-4Z"></path>
@@ -362,7 +397,7 @@ const ChatWidget = () => {
                   </svg>
                 </Button>
               </div>
-              <div className="text-xs text-gray-500 mt-2">
+              <div className="text-xs text-gray-500 mt-2 flex justify-between items-center">
                 <span className="flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                     <circle cx="12" cy="12" r="10"></circle>
@@ -371,6 +406,27 @@ const ChatWidget = () => {
                   </svg>
                   Powered by RAG with Gemini. Session ID: <span className="font-mono ml-1">{sessionId}</span>
                 </span>
+                <div className="flex items-center gap-2">
+                  <span className={offlineMode || status === 'disconnected' ? "text-red-500" : "text-green-500"}>
+                    {offlineMode || status === 'disconnected' ? "Offline" : "Online"}
+                  </span>
+                  <div 
+                    className={`w-8 h-4 rounded-full flex items-center cursor-pointer transition-colors ${offlineMode ? 'bg-gray-300' : 'bg-green-500'}`}
+                    onClick={() => {
+                      setOfflineMode(!offlineMode);
+                      toast({
+                        title: offlineMode ? "Online Mode Activated" : "Offline Mode Activated",
+                        description: offlineMode 
+                          ? "Chat functionality is now available." 
+                          : "Chat functionality is limited in offline mode.",
+                      });
+                    }}
+                  >
+                    <div 
+                      className={`w-3 h-3 rounded-full bg-white transform transition-transform duration-200 ${offlineMode ? 'ml-1' : 'ml-4'}`}
+                    ></div>
+                  </div>
+                </div>
               </div>
             </form>
           </CardFooter>

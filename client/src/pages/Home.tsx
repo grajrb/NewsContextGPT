@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import NewsArticle from '@/components/NewsArticle';
 import NewsGrid from '@/components/NewsGrid';
 import ChatWidget from '@/components/ChatWidget';
+import ConnectionStatus from '@/components/ConnectionStatus';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
@@ -192,6 +193,7 @@ const Home = () => {
       </main>
       
       <ChatWidget />
+      <ConnectionStatus />
     </>
   );
 };

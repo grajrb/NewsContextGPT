@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -10,6 +10,11 @@ import { ingestNewsArticles } from "./ingestion";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+  
+  // Add health check endpoint
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
 
   // Set up specific route for WebSockets
   app.get('/ws', (req, res) => {

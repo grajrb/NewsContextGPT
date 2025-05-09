@@ -3,9 +3,158 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>News Assistant - RAG-Powered Chatbot</title>
+    <style>
+      /* Loading and fallback styles */
+      #loading-fallback {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #f9fafb;
+        z-index: 9999;
+        transition: opacity 0.5s ease-in-out;
+      }
+      
+      .app-loaded #loading-fallback {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(79, 70, 229, 0.2);
+        border-radius: 50%;
+        border-top-color: #4f46e5;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+
+      .connection-error {
+        display: none;
+        text-align: center;
+        max-width: 500px;
+        margin: 0 20px;
+      }
+      
+      .connection-error h2 {
+        color: #111827;
+        margin-bottom: 16px;
+      }
+      
+      .connection-error p {
+        color: #4b5563;
+        margin-bottom: 16px;
+        line-height: 1.5;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      
+      .btn {
+        display: inline-block;
+        background-color: #4f46e5;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      
+      .btn-outline {
+        background-color: transparent;
+        border: 1px solid #4f46e5;
+        color: #4f46e5;
+      }
+
+      /* Show error message after timeout */
+      .show-error-timeout .connection-error {
+        display: block;
+      }
+      
+      .show-error-timeout .loading-spinner {
+        display: none;
+      }
+      
+      .loading-text {
+        color: #4b5563;
+        margin-top: 12px;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      @media (max-width: 640px) {
+        .actions {
+          flex-direction: column;
+          width: 100%;
+          max-width: 280px;
+        }
+        
+        .btn {
+          width: 100%;
+          text-align: center;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Loading and connection error fallback -->
+    <div id="loading-fallback">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading News Assistant...</div>
+      
+      <div class="connection-error">
+        <h2>Connection Issues Detected</h2>
+        <p>We're experiencing some technical difficulties with WebSocket connections. This is a known issue in certain environments.</p>
+        <p>Our application includes an offline mode that allows you to browse cached content without needing a live connection.</p>
+        
+        <div class="actions">
+          <button class="btn" onclick="window.location.reload()">Refresh Page</button>
+          <a href="/?offline=true" class="btn btn-outline">Open in Offline Mode</a>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // Show error message if application doesn't load within 10 seconds
+      setTimeout(function() {
+        const loadingFallback = document.getElementById('loading-fallback');
+        if (loadingFallback && loadingFallback.style.opacity !== '0') {
+          loadingFallback.classList.add('show-error-timeout');
+        }
+      }, 10000);
+      
+      // Function to mark app as loaded (called from the React app)
+      window.appLoaded = function() {
+        document.body.classList.add('app-loaded');
+      };
+      
+      // Parse URL params to check for offline mode
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('offline') && urlParams.get('offline') === 'true') {
+        window.startInOfflineMode = true;
+      }
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
