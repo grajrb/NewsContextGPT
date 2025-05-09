@@ -33,8 +33,36 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [checkCount, setCheckCount] = useState(0);
   const [offlineMode, setOfflineMode] = useState(() => {
-    // Use the window.startInOfflineMode flag set in index.html if available
-    return typeof window !== 'undefined' && (window as any).startInOfflineMode === true;
+    // Check multiple sources for offline mode preference
+    try {
+      // 1. Check URL parameter (highest priority)
+      if (typeof window !== 'undefined' && window.location.search.includes('offline=true')) {
+        return true;
+      }
+      
+      // 2. Check window flag set in index.html
+      if (typeof window !== 'undefined' && (window as any).startInOfflineMode === true) {
+        return true;
+      }
+      
+      // 3. Check localStorage for persistent preference
+      if (typeof window !== 'undefined' && localStorage.getItem('offline_mode_enabled') === 'true') {
+        return true;
+      }
+
+      // 4. Check for Replit environment which is known to have WebSocket issues
+      if (typeof window !== 'undefined' && 
+         (window.location.hostname.includes('replit') || 
+          navigator.userAgent.includes('Replit'))) {
+        // Start in offline mode in Replit environment to avoid connectivity issues
+        return true;
+      }
+    } catch (e) {
+      console.error('Error checking offline mode preference:', e);
+    }
+    
+    // Default to online mode
+    return false;
   });
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const { toast } = useToast();
@@ -142,14 +170,29 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
     setOfflineMode(mode);
     if (mode) {
       setStatus('disconnected');
+      // Store offline mode preference in localStorage for persistence
+      try {
+        localStorage.setItem('offline_mode_enabled', 'true');
+      } catch (e) {
+        console.error('Failed to save offline mode preference to localStorage:', e);
+      }
+      
       toast({
         title: 'Offline mode enabled',
-        description: 'The app will not attempt to connect to the server.',
+        description: 'The app will use cached content and not attempt to connect to the server.',
         duration: 3000,
       });
     } else {
       setStatus('connecting');
       setConnectionAttempts(0);
+      
+      // Remove offline mode preference from localStorage
+      try {
+        localStorage.removeItem('offline_mode_enabled');
+      } catch (e) {
+        console.error('Failed to remove offline mode preference from localStorage:', e);
+      }
+      
       checkConnection();
       toast({
         title: 'Checking connection',
