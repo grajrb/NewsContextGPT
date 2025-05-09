@@ -87,7 +87,13 @@ const ChatWidget = () => {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return sendMessage(sessionId, message);
+      try {
+        return await sendMessage(sessionId, message);
+      } catch (error) {
+        console.error("Error sending message:", error);
+        // If the API call fails, we'll still show a fallback response
+        throw error;
+      }
     },
     onSuccess: (data) => {
       // Add bot message to chat
@@ -104,9 +110,20 @@ const ChatWidget = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/chat', sessionId] });
     },
     onError: (error) => {
+      // Add a fallback bot message when the API call fails
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          content: "I'm having trouble connecting to my knowledge base right now. Please try again in a moment.",
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+      
       toast({
-        title: "Error",
-        description: `Failed to send message: ${error instanceof Error ? error.message : "Unknown error"}`,
+        title: "Connection issue",
+        description: "Unable to process your request at the moment. Please try again later.",
         variant: "destructive",
       });
     },
@@ -115,7 +132,12 @@ const ChatWidget = () => {
   // Clear chat mutation
   const clearChatMutation = useMutation({
     mutationFn: async () => {
-      return clearChat(sessionId);
+      try {
+        return await clearChat(sessionId);
+      } catch (error) {
+        console.error("Error clearing chat:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       // Reset to only welcome message
@@ -135,10 +157,19 @@ const ChatWidget = () => {
       });
     },
     onError: (error) => {
+      // Still clear the local messages even if the server call fails
+      setMessages([
+        {
+          id: nanoid(),
+          content: "Hello! I'm your news assistant powered by AI. I can answer questions about current news events. What would you like to know?",
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+      
       toast({
-        title: "Error",
-        description: `Failed to clear chat: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive",
+        title: "Note",
+        description: "Chat cleared locally. Server synchronization may be delayed.",
       });
     },
   });

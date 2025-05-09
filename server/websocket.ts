@@ -21,6 +21,24 @@ export function setupWebSocket(server: HTTPServer) {
     verifyClient: (info, cb) => {
       // Accept all WebSocket connections
       cb(true);
+    },
+    // Increase timeout values to prevent premature disconnections
+    clientTracking: true,
+    perMessageDeflate: {
+      zlibDeflateOptions: {
+        chunkSize: 1024,
+        memLevel: 7,
+        level: 3
+      },
+      zlibInflateOptions: {
+        chunkSize: 10 * 1024
+      },
+      // Below is the important part for our application
+      serverNoContextTakeover: false,
+      clientNoContextTakeover: false, 
+      serverMaxWindowBits: 10,
+      concurrencyLimit: 10,
+      threshold: 1024 // Size in bytes below which messages should not be compressed
     }
   });
 
@@ -29,7 +47,31 @@ export function setupWebSocket(server: HTTPServer) {
     console.error('WebSocket server error:', error);
   });
 
-  wss.on('connection', (ws: WebSocket) => {
+  // Track connection attempts for each IP to prevent overloading
+  const connectionAttempts = new Map<string, number>();
+  const MAX_ATTEMPTS = 5;
+  const RESET_TIME = 60000; // 1 minute
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    // Get IP address for connection tracking
+    const ip = req.socket.remoteAddress || 'unknown';
+    
+    // Check if this IP has had too many reconnection attempts
+    const attempts = connectionAttempts.get(ip) || 0;
+    if (attempts > MAX_ATTEMPTS) {
+      console.warn(`Too many connection attempts from ${ip}, blocking temporarily`);
+      ws.close(1008, 'Too many connection attempts');
+      return;
+    }
+    
+    // Increment connection attempts
+    connectionAttempts.set(ip, attempts + 1);
+    
+    // Reset connection attempts after some time
+    setTimeout(() => {
+      connectionAttempts.set(ip, Math.max(0, (connectionAttempts.get(ip) || 0) - 1));
+    }, RESET_TIME);
+    
     // Generate a session ID for new connections
     const sessionId = nanoid();
     sessions.set(sessionId, ws);
@@ -53,10 +95,35 @@ export function setupWebSocket(server: HTTPServer) {
       message: "Hello! I'm your news assistant powered by AI. I can answer questions about current news events. What would you like to know?"
     }));
 
-    // Handle incoming messages
-    ws.on('message', async (data: string) => {
+    // Add heartbeat mechanism to detect connection issues
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000); // Send ping every 30 seconds
+    
+    // Handle pong responses
+    ws.on('pong', () => {
+      // Connection is still alive
+    });
+    
+    // Handle incoming messages with better error handling
+    ws.on('message', async (data: any) => {
       try {
-        const message = JSON.parse(data);
+        let message;
+        
+        try {
+          // Handle both string and Buffer data types
+          const messageStr = data instanceof Buffer ? data.toString() : data;
+          message = JSON.parse(messageStr);
+        } catch (parseError) {
+          console.error('Failed to parse WebSocket message:', parseError);
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Failed to parse message format'
+          }));
+          return;
+        }
         
         // Validate incoming message
         if (!message.sessionId || !message.message) {
@@ -118,7 +185,13 @@ export function setupWebSocket(server: HTTPServer) {
 
     // Handle disconnection
     ws.on('close', () => {
+      // Clean up the connection from the sessions map
       sessions.delete(sessionId);
+      
+      // Clear the ping interval to prevent memory leaks
+      clearInterval(pingInterval);
+      
+      console.log(`WebSocket connection closed for session ${sessionId}`);
     });
   });
 }

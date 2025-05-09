@@ -22,11 +22,9 @@ type NewsArticleType = {
 };
 
 const Home = () => {
-  // Fetch featured news with error handling
+  // Fetch featured news
   const { data: featuredArticles, isLoading: isFeaturedLoading, isError } = useQuery<NewsArticleType[]>({
-    queryKey: ['/api/news/featured'],
-    retry: 3,
-    retryDelay: 1000
+    queryKey: ['/api/news/featured']
   });
 
   // Default placeholder image if none is provided
