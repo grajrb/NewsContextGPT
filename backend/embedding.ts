@@ -8,12 +8,18 @@ import axios from 'axios';
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   try {
+    // Add a small delay to ensure environment variables are loaded
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Get API key from environment variables with fallback
-    const apiKey = process.env.JINA_API_KEY || process.env.EMBEDDING_API_KEY || "";
+    const apiKey = process.env.JINA_API_KEY || process.env.EMBEDDING_API_KEY;
     
     if (!apiKey) {
+      console.log('Environment variables available:', Object.keys(process.env).join(', '));
       throw new Error("JINA_API_KEY or EMBEDDING_API_KEY environment variable not set");
     }
+    
+    console.log('API Key available:', apiKey ? 'Yes' : 'No');
     
     // Call Jina Embeddings API
     const response = await axios.post(
@@ -64,12 +70,12 @@ function generateFallbackEmbedding(text: string): number[] {
   
   // Convert to a fixed-size vector (use ASCII values as dimensions)
   const embedding: number[] = new Array(128).fill(0);
-  for (const [char, freq] of charFreq.entries()) {
+  charFreq.forEach((freq, char) => {
     const code = char.charCodeAt(0);
     if (code < 128) {
       embedding[code] = freq / text.length;
     }
-  }
+  });
   
   return embedding;
 }

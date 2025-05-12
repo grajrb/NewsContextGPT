@@ -50,13 +50,7 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
         return true;
       }
 
-      // 4. Check for Replit environment which is known to have WebSocket issues
-      if (typeof window !== 'undefined' && 
-         (window.location.hostname.includes('replit') || 
-          navigator.userAgent.includes('Replit'))) {
-        // Start in offline mode in Replit environment to avoid connectivity issues
-        return true;
-      }
+      // No specific environment checks needed
     } catch (e) {
       console.error('Error checking offline mode preference:', e);
     }

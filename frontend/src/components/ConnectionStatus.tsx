@@ -43,12 +43,9 @@ const ConnectionStatus = () => {
     await checkConnection();
   };
 
-  // Effect to force visibility on Replit environment
+  // Effect to force visibility when disconnected
   useEffect(() => {
-    if (window.location.hostname.includes('replit') || 
-        navigator.userAgent.includes('Replit') || 
-        status === 'disconnected') {
-      // Force visibility when in Replit where we know we might have WebSocket issues
+    if (status === 'disconnected') {
       setVisible(true);
     }
   }, [status]);
